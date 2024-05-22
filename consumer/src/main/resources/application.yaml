@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: spring-consumer
+  kafka:
+    bootstrap-servers: PLAINTEXT://localhost:9094
+    consumer:
+      group-id: ${spring.application.name}
+      auto-offset-reset: earliest
+      properties:
+        spring.kafka.consumer.key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
