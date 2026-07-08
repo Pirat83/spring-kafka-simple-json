@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: spring-aggregator
+  kafka:
+    bootstrap-servers: PLAINTEXT://localhost:9094
+    streams:
+      application-id: spring-aggregator
+      properties:
+        commit.interval.ms: 1000
+        cache.max.bytes.buffering: 0
+        spring.json.trusted.packages: "de.bluesharp.model"
