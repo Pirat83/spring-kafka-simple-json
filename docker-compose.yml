@@ -7,6 +7,8 @@ volumes:
     driver: local
   kafka-data:
     driver: local
+  mongo-data:
+    driver: local
 
 services:
   akhq:
@@ -26,7 +28,7 @@ services:
 
     ports:
       - '8080:8080'
-    links:
+    depends_on:
       - kafka
       - schema-registry
 
@@ -63,7 +65,7 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL_SAME_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
 
-    links:
+    depends_on:
       - zookeeper
     ports:
       - '9094:9094'
@@ -80,3 +82,68 @@ services:
       SCHEMA_REGISTRY_LOG4J_ROOT_LOGLEVEL: 'INFO'
     ports:
       - '8085:8085'
+
+  # Kafka Connect worker hosting both connectors of the datagen -> Mongo pipeline.
+  # The Confluent Datagen source connector and the MongoDB sink connector are not
+  # bundled in the base image, so they are installed from Confluent Hub on start-up
+  # (needs outbound internet the first time; plugins land on the CONNECT_PLUGIN_PATH).
+  # Plugin versions are pinned to the Java-11 era matching cp-kafka-connect 7.6.1:
+  # datagen 0.7.x bundles Java-17-compiled Avro libs and fails on this worker's JVM.
+  kafka-connect:
+    image: confluentinc/cp-kafka-connect:7.6.1
+    restart: unless-stopped
+    depends_on:
+      - kafka
+      - schema-registry
+    ports:
+      - '8083:8083'
+    volumes:
+      # The crafted SensorReading model, referenced by the datagen connector via schema.filename.
+      - ./connect/schemas:/schemas:Z
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: 'kafka:9092'
+      CONNECT_REST_PORT: '8083'
+      CONNECT_REST_ADVERTISED_HOST_NAME: 'kafka-connect'
+      CONNECT_GROUP_ID: 'connect-cluster'
+      CONNECT_CONFIG_STORAGE_TOPIC: '_connect-configs'
+      CONNECT_OFFSET_STORAGE_TOPIC: '_connect-offsets'
+      CONNECT_STATUS_STORAGE_TOPIC: '_connect-status'
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: '1'
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: '1'
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: '1'
+      # Worker defaults; individual connectors override these in their config JSON.
+      CONNECT_KEY_CONVERTER: 'org.apache.kafka.connect.storage.StringConverter'
+      CONNECT_VALUE_CONVERTER: 'io.confluent.connect.avro.AvroConverter'
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: 'http://schema-registry:8085'
+      CONNECT_PLUGIN_PATH: '/usr/share/java,/usr/share/confluent-hub-components'
+      CONNECT_LOG4J_ROOT_LOGLEVEL: 'INFO'
+      CONNECT_LOG4J_LOGGERS: 'org.reflections=ERROR'
+    command:
+      - bash
+      - -c
+      - |
+        echo "Installing connector plugins from Confluent Hub..."
+        confluent-hub install --no-prompt confluentinc/kafka-connect-datagen:0.6.5
+        confluent-hub install --no-prompt mongodb/kafka-connect-mongodb:3.0.1
+        echo "Starting Kafka Connect worker..."
+        exec /etc/confluent/docker/run
+
+  mongodb:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db:Z
+    ports:
+      - '27017:27017'
+
+  # Web UI for MongoDB (mirrors AKHQ for Kafka). http://localhost:8081
+  mongo-express:
+    image: mongo-express:1.0.2
+    restart: unless-stopped
+    depends_on:
+      - mongodb
+    environment:
+      ME_CONFIG_MONGODB_URL: 'mongodb://mongodb:27017'
+      ME_CONFIG_BASICAUTH: 'false'
+    ports:
+      - '8081:8081'

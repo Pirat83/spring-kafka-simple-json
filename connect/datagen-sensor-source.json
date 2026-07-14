@@ -1,0 +1,17 @@
+{
+  "name": "datagen-sensor-source",
+  "config": {
+    "connector.class": "io.confluent.kafka.connect.datagen.DatagenConnector",
+    "tasks.max": "1",
+    "kafka.topic": "de.bluesharp.model.SensorReading",
+
+    "schema.filename": "/schemas/sensor-reading.avsc",
+    "schema.keyfield": "deviceId",
+
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter.schema.registry.url": "http://schema-registry:8085",
+
+    "max.interval": "1000"
+  }
+}
