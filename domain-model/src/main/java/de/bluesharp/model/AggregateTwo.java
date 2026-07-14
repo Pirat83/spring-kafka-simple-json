@@ -6,7 +6,8 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Data
-public class AggregateFour {
+public class AggregateTwo implements MetadataAware {
+
 
     private UUID uuid;
     private Instant timestamp;
