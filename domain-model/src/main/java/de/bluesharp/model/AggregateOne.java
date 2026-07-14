@@ -6,10 +6,10 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Data
-public class AggregateTwo {
+public class AggregateOne implements MetadataAware {
 
 
     private UUID uuid;
     private Instant timestamp;
-    private Long payload;
+    private String payload;
 }
