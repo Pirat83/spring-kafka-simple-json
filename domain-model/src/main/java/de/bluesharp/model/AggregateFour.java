@@ -6,10 +6,11 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Data
-public class AggregateFour implements MetadataAware {
+public class AggregateFour implements MetadataAware<SemanticVersion> {
 
 
     private UUID uuid;
     private Instant timestamp;
     private Long payload;
+    private SemanticVersion version;
 }
